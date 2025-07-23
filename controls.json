@@ -1,0 +1,16 @@
+{
+  "microscope_config": {
+    "coarse_x": "smarx",
+    "coarse_y": "smary",
+    "coarse_z": "smarz",
+    "fine_x": "zpssx",
+    "fine_y": "zpssy",
+    "fine_z": "zpssz",
+    "z1": "zp.zpz1",
+    "z2": "zp.zpz2",
+    "theta": "zpsth",
+    "sx": "zps.zpsx",
+    "sy": "zps.zpsy",
+    "sz": "zps.zpsz"
+  }
+} 
