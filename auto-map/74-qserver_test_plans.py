@@ -234,14 +234,79 @@ def send_fly2d_to_queue(label,
                       data_wd,
                       pos_save_to or ""
                       ))
+import os
+import json
+import time
+from databroker import db
+from bluesky import plans as bps
+
+# Assume these are imported or defined elsewhere in your namespace:
+# send_fly2d_to_queue, export_xrf_roi_data, export_scan_params, recover_zp_scan_pos,
+# fly2dpd, check_for_beam_dump, peak_the_flux
+
+def wait_for_queue_done(poll_interval=2.0):
+    """
+    Block until the QServer queue is empty and the manager goes idle.
+    """
+    print("[WAIT] polling queue status...", end="", flush=True)
+    while True:
+        st = RM.status()
+        if st['items_in_queue'] == 0 and st['manager_state'] == 'idle':
+            print(" done.")
+            return
+        print(".", end="", flush=True)
+        time.sleep(poll_interval)
 
 
-def load_and_queue(json_path):
+def submit_and_export(**params):
+    """
+    Enqueue a scan, wait for completion, then export XRF TIFFs and ROI JSON.
+    Expects the same params as load_and_queue would unpack.
+    """
+    # 1) enqueue
+    label = params.get('label', '')
+    print(f"[SUBMIT] queueing scan '{label}' …")
+    send_fly2d_to_queue(**params)
+
+    # 2) wait
+    wait_for_queue_done()
+
+    # 3) grab last scan_id
+    hdr = db[-1]
+    last_id = hdr.start['scan_id']
+    print(f"[EXPORT] scan {last_id} finished; exporting data…")
+
+    # 4) export XRF
+    export_xrf_roi_data(last_id,
+                        norm=params.get('export_norm', 'sclr2_ch4'),
+                        elem_list=params.get('elem_list', []),
+                        wd=params.get('data_wd', '.'))
+
+    # 5) save ROI
+    pos_save_to = params.get('pos_save_to')
+    if pos_save_to:
+        export_scan_params(sid=last_id,
+                           zp_flag=params.get('zp_move_flag', True),
+                           save_to=pos_save_to)
+
+    print("[DONE] all exports complete.")
+
+
+def load_and_queue(json_path, ):
+    """
+    Load scan parameters from JSON, compute necessary fields,
+    and either enqueue only or enqueue+export based on a flag.
+
+    JSON can include an optional 'block_and_export': true to wait and post-process.
+    """
     # 1) Read main params
     with open(json_path, 'r') as f:
         params = json.load(f)
 
-    # 2) Load ROI from separate file if requested
+    # 2) Extract blocking flag
+    block_and_export = params.pop('block_and_export', True)
+
+    # 3) Load ROI from separate file if requested
     roi_file = params.pop('roi_positions_file', None)
     if roi_file:
         if not os.path.isfile(roi_file):
@@ -252,18 +317,21 @@ def load_and_queue(json_path):
         with open(params['roi_positions'], 'r') as rf:
             params['roi_positions'] = json.load(rf)
 
-    # 3) Compute mot1_n & mot2_n from a single step_size
+    # 4) Compute mot1_n & mot2_n from a single step_size
     if 'step_size' in params:
         step = params.pop('step_size')
         params['mot1_n'] = int(abs(params['mot1_e'] - params['mot1_s']) / step)
         params['mot2_n'] = int(abs(params['mot2_e'] - params['mot2_s']) / step)
 
-    # 4) Ensure dets is a string literal for eval()
+    # 5) Ensure dets is a string literal for eval()
     if isinstance(params.get('dets'), list):
         params['dets'] = repr(params['dets'])
 
-    # 5) Dispatch to QServer
-    send_fly2d_to_queue(**params)
+    # 6) Dispatch
+    if block_and_export:
+        submit_and_export(**params)
+    else:
+        send_fly2d_to_queue(**params)
 
 
 '''
