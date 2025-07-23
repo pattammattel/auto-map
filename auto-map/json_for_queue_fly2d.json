@@ -8,45 +8,13 @@
   "mot2_s":          -12.5,
   "mot2_e":          12.5,
   "exp_t":           0.01,
-  "step_size":       0.250,
-  // either embed your ROI dict inline...
-  // "roi_positions": {"zpssx": 1.2, "zpssy": 0.5, "zpssz": 3.4},
-  // …or point to another file:
-  "roi_positions_file": "roi_positions.json",
+  "step_size":       1,
+  "roi_positions_file": null,
   "scan_id":         null,
-  "zp_move_flag":    1,
-  "smar_move_flag":  1,
-  "elem_list":        ["Fe","Cu","Zn"],
-  "export_norm":      "sclr2_ch4",
-  "data_wd":          "/path/to/data_out",
-  "pos_save_to":      "/path/to/pos.json"
+  "zp_move_flag":    0,
+  "smar_move_flag":  0,
+  "elem_list":        ["Fe","Cu","Co"],
+  "export_norm":      "sclr1_ch4",
+  "data_wd":          "/data/user_macros",
+  "pos_save_to":      "/data/user_macros"
 }
-
-def load_and_queue(json_path):
-    # 1) Read main params
-    with open(json_path, 'r') as f:
-        params = json.load(f)
-
-    # 2) Load ROI from separate file if requested
-    roi_file = params.pop('roi_positions_file', None)
-    if roi_file:
-        if not os.path.isfile(roi_file):
-            raise FileNotFoundError(f"ROI file not found: {roi_file}")
-        with open(roi_file, 'r') as rf:
-            params['roi_positions'] = json.load(rf)
-    elif isinstance(params.get('roi_positions'), str) and os.path.isfile(params['roi_positions']):
-        with open(params['roi_positions'], 'r') as rf:
-            params['roi_positions'] = json.load(rf)
-
-    # 3) Compute mot1_n & mot2_n from a single step_size
-    if 'step_size' in params:
-        step = params.pop('step_size')
-        params['mot1_n'] = int(abs(params['mot1_e'] - params['mot1_s']) / step)
-        params['mot2_n'] = int(abs(params['mot2_e'] - params['mot2_s']) / step)
-
-    # 4) Ensure dets is a string literal for eval()
-    if isinstance(params.get('dets'), list):
-        params['dets'] = repr(params['dets'])
-
-    # 5) Dispatch to QServer
-    send_fly2d_to_queue(**params)
