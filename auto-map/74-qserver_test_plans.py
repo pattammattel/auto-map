@@ -180,21 +180,22 @@ def fly2d_qserver_scan_export(label,
                        mot1, mot1_s, mot1_e, mot1_n,
                        mot2, mot2_s, mot2_e, mot2_n,
                        exp_t)
+    #produce a zmq message with scan id?
 
-    # — 3) POST-SCAN EXPORTS —
-    hdr = db[-1]
-    last_id = hdr.start["scan_id"]
-    print(f"[POST] exporting XRF ROI data for scan {last_id}…")
-    export_xrf_roi_data(last_id,
-                        norm=export_norm,
-                        elem_list=elem_list or [],
-                        wd=data_wd)
+    # # — 3) POST-SCAN EXPORTS —
+    # hdr = db[-1]
+    # last_id = hdr.start["scan_id"]
+    # print(f"[POST] exporting XRF ROI data for scan {last_id}…")
+    # export_xrf_roi_data(last_id,
+    #                     norm=export_norm,
+    #                     elem_list=elem_list or [],
+    #                     wd=data_wd)
 
-    if pos_save_to:
-        print(f"[POST] saving ROI positions JSON to {pos_save_to}…")
-        export_scan_params(sid=last_id, zp_flag=True, save_to=pos_save_to)
+    # if pos_save_to:
+    #     print(f"[POST] saving ROI positions JSON to {pos_save_to}…")
+    #     export_scan_params(sid=last_id, zp_flag=True, save_to=pos_save_to)
 
-    print("[POST] done.")
+    # print("[POST] done.")
 
 
 def send_fly2d_to_queue(label,
@@ -208,7 +209,7 @@ def send_fly2d_to_queue(label,
                         smar_move_flag=1,
                         ic1_count = 55000,
                         elem_list=None,
-                        export_norm='sclr2_ch4',
+                        export_norm='sclr1_ch4',
                         data_wd='.',
                         pos_save_to=None):
     det_names = [d.name for d in eval(dets)]
@@ -234,15 +235,7 @@ def send_fly2d_to_queue(label,
                       data_wd,
                       pos_save_to or ""
                       ))
-import os
-import json
-import time
-from databroker import db
-from bluesky import plans as bps
 
-# Assume these are imported or defined elsewhere in your namespace:
-# send_fly2d_to_queue, export_xrf_roi_data, export_scan_params, recover_zp_scan_pos,
-# fly2dpd, check_for_beam_dump, peak_the_flux
 
 def wait_for_queue_done(poll_interval=2.0):
     """
@@ -278,7 +271,7 @@ def submit_and_export(**params):
 
     # 4) export XRF
     export_xrf_roi_data(last_id,
-                        norm=params.get('export_norm', 'sclr2_ch4'),
+                        norm=params.get('export_norm', 'sclr1_ch4'),
                         elem_list=params.get('elem_list', []),
                         wd=params.get('data_wd', '.'))
 
