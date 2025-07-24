@@ -1,7 +1,0 @@
-{
-  "det_name": "dets_fast",
-  "mot1": "fine_x",
-  "mot2": "fine_y",
-  "exp_t": 0.05,
-  "step_size_um": 0.1
-} 
