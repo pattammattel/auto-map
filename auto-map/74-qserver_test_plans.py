@@ -251,10 +251,11 @@ def wait_for_queue_done(poll_interval=2.0):
         time.sleep(poll_interval)
 
 
+
 def submit_and_export(**params):
     """
-    Enqueue a scan, wait for completion, then export XRF TIFFs and ROI JSON.
-    Expects the same params as load_and_queue would unpack.
+    Enqueue a scan, wait for completion, then export XRF TIFFs and ROI JSON
+    into a single folder automap_{scan_id} under data_wd.
     """
     # 1) enqueue
     label = params.get('label', '')
@@ -262,25 +263,36 @@ def submit_and_export(**params):
     send_fly2d_to_queue(**params)
 
     # 2) wait
-    wait_for_queue_done()
+    print("[WAIT] waiting for scan to finish…")
+    while True:
+        st = RM.status()
+        if st['items_in_queue'] == 0 and st['manager_state'] == 'idle':
+            break
+        time.sleep(1.0)
+    print("[WAIT] scan complete.")
 
-    # 3) grab last scan_id
+    # 3) get last scan_id and prepare output folder
     hdr = db[-1]
     last_id = hdr.start['scan_id']
-    print(f"[EXPORT] scan {last_id} finished; exporting data…")
+    data_wd = params.get('data_wd', '.')
+    out_dir = os.path.join(data_wd, f"automap_{last_id}")
+    os.makedirs(out_dir, exist_ok=True)
+    print(f"[EXPORT] saving all outputs to {out_dir}")
 
-    # 4) export XRF
-    export_xrf_roi_data(last_id,
-                        norm=params.get('export_norm', 'sclr1_ch4'),
-                        elem_list=params.get('elem_list', []),
-                        wd=params.get('data_wd', '.'))
+    # 4) export XRF TIFFs
+    export_xrf_roi_data(
+        last_id,
+        norm=params.get('export_norm', 'sclr1_ch4'),
+        elem_list=params.get('elem_list', []),
+        wd=out_dir
+    )
 
-    # 5) save ROI
-    pos_save_to = params.get('pos_save_to')
-    if pos_save_to:
-        export_scan_params(sid=last_id,
-                           zp_flag=params.get('zp_move_flag', True),
-                           save_to=pos_save_to)
+    # 5) export scan parameters JSON
+    export_scan_params(
+        sid=last_id,
+        zp_flag=bool(params.get('zp_move_flag', True)),
+        save_to=out_dir
+    )
 
     print("[DONE] all exports complete.")
 
